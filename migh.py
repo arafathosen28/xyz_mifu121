@@ -1,8 +1,7 @@
-import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+from telegram import Update
+from telegram.ext import Application, CommandHandler, CallbackContext
 import requests
-import json
+import logging
 from datetime import datetime, timedelta
 import threading
 
@@ -40,14 +39,7 @@ def start(update: Update, context: CallbackContext) -> None:
 def menu(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     if users[user_id]["referrals"] >= 1:
-        keyboard = [
-            [InlineKeyboardButton("ইমেজ জেনারেট করুন", callback_data='gen_img')],
-            [InlineKeyboardButton("প্রোফাইল", callback_data='profile')],
-            [InlineKeyboardButton("চ্যানেল", callback_data='channel')],
-            [InlineKeyboardButton("প্ল্যান আপগ্রেড করুন", callback_data='upgrade_plan')],
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text('মেনু:', reply_markup=reply_markup)
+        update.message.reply_text("মেনু:\n/gen_img - ইমেজ জেনারেট করুন\n/profile - প্রোফাইল দেখুন\n/upgrade_plan - প্ল্যান আপগ্রেড করুন")
     else:
         update.message.reply_text("বট আনলক করতে ১ জন বন্ধুকে রেফার করুন এবং রেফার লিঙ্ক দিন।")
 
@@ -106,69 +98,20 @@ def gen_img(update: Update, context: CallbackContext) -> None:
         else:
             update.message.reply_text(f"আপনার দৈনিক লিমিট শেষ হয়েছে। আজ আপনি {user['daily_limit']} টি ইমেজ জেনারেট করতে পারেন।")
 
-# অ্যাডমিন প্যানেল
-def admin_panel(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    if user_id == admin_id:
-        update.message.reply_text("অ্যাডমিন প্যানেল:\n/notify_all - সকল ইউজারকে নোটিশ পাঠান\n/notify_user - নির্দিষ্ট ইউজারকে নোটিশ পাঠান\n/ban_user - ইউজার বান করুন\n/unban_user - ইউজার আনবান করুন\n/set_referral - রেফার মান সেট করুন\n/set_daily_limit - দৈনিক লিমিট সেট করুন\n/add_admin - অ্যাডমিন যোগ করুন\n/remove_admin - অ্যাডমিন সরান\n/list_admins - অ্যাডমিন তালিকা দেখুন\n/view_user - ইউজার ডিটেইলস দেখুন\n/upgrade_user - ইউজার প্ল্যান আপগ্রেড করুন")
-    else:
-        update.message.reply_text("আপনি অ্যাডমিন নন।")
-
-# ইউজার ডিটেইলস দেখান
-def view_user(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    if user_id == admin_id:
-        try:
-            target_user_id = int(context.args[0])
-            if target_user_id in users:
-                user = users[target_user_id]
-                plan = user["plan"]
-                referrals = user["referrals"]
-                image_count = user["image_count"]
-                daily_limit = user["daily_limit"]
-                premium_end_date = user["premium_end_date"]
-                update.message.reply_text(f"ইউজার আইডি: {target_user_id}\nপ্ল্যান: {plan}\nরেফার: {referrals}\nইমেজ কাউন্ট: {image_count}\nদৈনিক লিমিট: {daily_limit}\nপ্রিমিয়াম শেষের তারিখ: {premium_end_date}")
-            else:
-                update.message.reply_text("ইউজার খুঁজে পাওয়া যায়নি।")
-        except (IndexError, ValueError):
-            update.message.reply_text("ইউজার আইডি দিন।")
-    else:
-        update.message.reply_text("আপনি অ্যাডমিন নন।")
-
-# ইউজার প্ল্যান আপগ্রেড
-def upgrade_user(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    if user_id == admin_id:
-        try:
-            target_user_id = int(context.args[0])
-            plan_duration = int(context.args[1])  # দিনে
-            if target_user_id in users:
-                users[target_user_id]["plan"] = "premium"
-                users[target_user_id]["premium_end_date"] = datetime.now() + timedelta(days=plan_duration)
-                update.message.reply_text(f"ইউজার {target_user_id} কে {plan_duration} দিনের জন্য প্রিমিয়াম প্ল্যানে আপগ্রেড করা হয়েছে।")
-            else:
-                update.message.reply_text("ইউজার খুঁজে পাওয়া যায়নি।")
-        except (IndexError, ValueError):
-            update.message.reply_text("ইউজার আইডি এবং প্ল্যান ডিউরেশন দিন।")
-    else:
-        update.message.reply_text("আপনি অ্যাডমিন নন।")
-
 def main() -> None:
-    updater = Updater(bot_token)
-    dispatcher = updater.dispatcher
+    # নতুন ভার্সনের জন্য Updater এর পরিবর্তে Application ব্যবহার করুন
+    application = Application.builder().token(bot_token).build()
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("menu", menu))
-    dispatcher.add_handler(CommandHandler("gen_img", gen_img))
-    dispatcher.add_handler(CommandHandler("adminPanel", admin_panel))
-    dispatcher.add_handler(CommandHandler("view_user", view_user))
-    dispatcher.add_handler(CommandHandler("upgrade_user", upgrade_user))
+    # কমান্ড হ্যান্ডলার যোগ করুন
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("menu", menu))
+    application.add_handler(CommandHandler("gen_img", gen_img))
 
     # ডেইলি লিমিট রিসেট শুরু করুন
     reset_daily_limits()
 
-    updater.start_polling()
-    updater.idle()
+    # বট চালু করুন
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
